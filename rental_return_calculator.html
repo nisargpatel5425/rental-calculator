@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rental Total Return Calculator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1d1d1f; padding: 24px 16px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #666; margin-bottom: 20px; }
+  .pill { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 20px; background: #e8f0fe; color: #1a56db; margin-bottom: 20px; }
+  .panel { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; border: 1px solid #e5e5e5; }
+  .sec-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #888; font-weight: 600; margin-bottom: 12px; margin-top: 16px; }
+  .sec-label:first-child { margin-top: 0; }
+  .sr { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .slbl { font-size: 13px; color: #555; min-width: 210px; }
+  input[type=range] { flex: 1; accent-color: #534AB7; }
+  .sval { font-size: 13px; font-weight: 600; min-width: 80px; text-align: right; color: #1d1d1f; }
+  .hold-tabs { display: flex; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; width: fit-content; margin-bottom: 20px; }
+  .htab { padding: 6px 20px; font-size: 13px; cursor: pointer; background: transparent; border: none; color: #666; }
+  .htab.on { background: #f0f0f0; color: #1d1d1f; font-weight: 600; }
+  .mgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .mc { background: #f7f7f9; border-radius: 10px; padding: 14px; }
+  .mclbl { font-size: 11px; color: #888; margin-bottom: 4px; }
+  .mcval { font-size: 18px; font-weight: 600; }
+  .hero-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .hb { padding: 14px; border-radius: 10px; border: 1px solid #e5e5e5; }
+  .hlbl { font-size: 11px; color: #888; margin-bottom: 3px; }
+  .hnum { font-size: 28px; font-weight: 700; }
+  .hsub { font-size: 11px; color: #aaa; margin-top: 2px; }
+  .dv { border: none; border-top: 1px solid #f0f0f0; margin: 16px 0; }
+  .chart-title { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 10px; }
+  .chart-wrap { position: relative; width: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: #666; }
+  .ldot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; }
+  .row { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px solid #f5f5f5; }
+  .row:last-child { border-bottom: none; }
+  .rl { color: #666; flex: 1; padding-right: 12px; }
+  .rv { font-weight: 600; }
+  table { width: 100%; font-size: 12px; border-collapse: collapse; }
+  th { text-align: right; color: #888; font-weight: 600; padding: 5px 8px; border-bottom: 1px solid #eee; white-space: nowrap; }
+  th:first-child { text-align: left; }
+  td { text-align: right; padding: 5px 8px; border-bottom: 1px solid #f5f5f5; white-space: nowrap; }
+  td:first-child { text-align: left; color: #888; }
+  tr:last-child td { border-bottom: none; font-weight: 600; color: #1d1d1f; }
+  .verdict { background: #f7f7f9; border-radius: 8px; padding: 12px; font-size: 13px; color: #555; line-height: 1.65; }
+  .info-box { margin-top: 10px; font-size: 12px; padding: 10px 12px; border-radius: 8px; background: #e6f4ea; color: #1a6630; line-height: 1.55; }
+  .note { font-size: 11px; color: #aaa; margin-top: 16px; line-height: 1.65; }
+  @media (max-width: 600px) {
+    .hero-grid { grid-template-columns: 1fr 1fr; }
+    .slbl { min-width: 140px; font-size: 12px; }
+    .hnum { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Rental Investment — Total Return Analysis</h1>
+  <p class="subtitle">After-tax IRR, wealth build-up, and 1031 exit modeling</p>
+  <div class="pill">Exit: 1031 exchange — $0 tax at sale &nbsp;·&nbsp; Rent: +$50/mo every 2 years &nbsp;·&nbsp; AGI &gt;$150K passive loss rules applied</div>
+
+  <div class="panel">
+    <div class="sec-label">Income</div>
+    <div class="sr"><span class="slbl">Monthly rent today</span><input type="range" min="500" max="8000" step="50" value="3000" id="rent" oninput="go()"><span class="sval" id="o-rent"></span></div>
+    <div class="sr"><span class="slbl">Rent bump every 2 years</span><input type="range" min="0" max="300" step="25" value="50" id="rentinc" oninput="go()"><span class="sval" id="o-rentinc"></span></div>
+    <div class="sr"><span class="slbl">Vacancy rate</span><input type="range" min="0" max="15" step="1" value="5" id="vac" oninput="go()"><span class="sval" id="o-vac"></span></div>
+
+    <div class="sec-label">Expenses</div>
+    <div class="sr"><span class="slbl">Monthly non-mortgage expenses</span><input type="range" min="100" max="4000" step="50" value="600" id="opex" oninput="go()"><span class="sval" id="o-opex"></span></div>
+    <div class="sr"><span class="slbl">Annual maintenance &amp; capex</span><input type="range" min="0" max="25000" step="500" value="3000" id="capex" oninput="go()"><span class="sval" id="o-capex"></span></div>
+    <div class="sr"><span class="slbl">Monthly mortgage (P&amp;I)</span><input type="range" min="0" max="8000" step="50" value="1800" id="mort" oninput="go()"><span class="sval" id="o-mort"></span></div>
+
+    <div class="sec-label">Property &amp; Equity</div>
+    <div class="sr"><span class="slbl">Current market value</span><input type="range" min="100000" max="2000000" step="10000" value="550000" id="pval" oninput="go()"><span class="sval" id="o-pval"></span></div>
+    <div class="sr"><span class="slbl">Remaining mortgage balance</span><input type="range" min="0" max="1500000" step="10000" value="320000" id="debt" oninput="go()"><span class="sval" id="o-debt"></span></div>
+    <div class="sr"><span class="slbl">Total cash invested</span><input type="range" min="20000" max="800000" step="5000" value="150000" id="cash" oninput="go()"><span class="sval" id="o-cash"></span></div>
+    <div class="sr"><span class="slbl">Mortgage interest rate</span><input type="range" min="2" max="10" step="0.25" value="6.5" id="mrate" oninput="go()"><span class="sval" id="o-mrate"></span></div>
+    <div class="sr"><span class="slbl">Annual appreciation rate</span><input type="range" min="0" max="10" step="0.5" value="3" id="appr" oninput="go()"><span class="sval" id="o-appr"></span></div>
+    <div class="sr"><span class="slbl">Selling costs at exit</span><input type="range" min="3" max="10" step="0.5" value="6" id="sellcost" oninput="go()"><span class="sval" id="o-sellcost"></span></div>
+
+    <div class="sec-label">Tax</div>
+    <div class="sr"><span class="slbl">Federal bracket</span><input type="range" min="22" max="37" step="1" value="32" id="fed" oninput="go()"><span class="sval" id="o-fed"></span></div>
+    <div class="sr"><span class="slbl">State income tax rate</span><input type="range" min="0" max="15" step="0.5" value="7" id="state" oninput="go()"><span class="sval" id="o-state"></span></div>
+
+    <div class="sec-label">Holding Period</div>
+    <div class="hold-tabs">
+      <button class="htab" id="h5" onclick="setH(5)">5 years</button>
+      <button class="htab" id="h7" onclick="setH(7)">7 years</button>
+      <button class="htab on" id="h10" onclick="setH(10)">10 years</button>
+    </div>
+  </div>
+
+  <div class="mgrid" id="metrics"></div>
+
+  <div class="panel">
+    <div class="hero-grid" id="hero"></div>
+    <div class="verdict" id="verdict"></div>
+
+    <hr class="dv">
+    <div class="chart-title">Rent schedule — stepped $50 increases every 2 years</div>
+    <div class="chart-wrap" style="height:160px"><canvas id="ch-rent"></canvas></div>
+
+    <hr class="dv">
+    <div class="chart-title">Wealth build-up over holding period</div>
+    <div class="chart-wrap" style="height:240px"><canvas id="ch-wealth"></canvas></div>
+    <div class="legend">
+      <span><span class="ldot" style="background:#534AB7"></span>Property equity</span>
+      <span><span style="display:inline-block;width:18px;height:2px;border-top:2px dashed #1D9E75;vertical-align:middle;margin-right:4px"></span>Cumulative cash</span>
+      <span><span class="ldot" style="background:#D85A30"></span>Total wealth</span>
+    </div>
+
+    <hr class="dv">
+    <div class="chart-title">Annual return components</div>
+    <div class="chart-wrap" style="height:210px"><canvas id="ch-comp"></canvas></div>
+    <div class="legend">
+      <span><span class="ldot" style="background:#1D9E75"></span>Net cash flow</span>
+      <span><span class="ldot" style="background:#534AB7"></span>Principal paydown</span>
+      <span><span class="ldot" style="background:#378ADD"></span>Appreciation</span>
+    </div>
+
+    <hr class="dv">
+    <div class="chart-title">Year-by-year detail</div>
+    <div style="overflow-x:auto"><table id="yr-table"></table></div>
+
+    <hr class="dv">
+    <div class="chart-title">1031 exit proceeds</div>
+    <div id="exit-bd"></div>
+    <div class="info-box">
+      <strong>1031 advantage:</strong> All capital gains &amp; depreciation recapture are deferred. Your full net proceeds roll into the next property. At your income level this is the most powerful tax lever available — the deferred tax acts as an interest-free loan from the IRS into your next deal.
+    </div>
+  </div>
+
+  <div class="note">
+    Rent modeled as fixed monthly amount stepped up by the specified dollar every 2 years. 1031 exchange defers 100% of capital gains and depreciation recapture. AGI &gt;$150K: depreciation-driven passive losses suspended annually, carried into next property's basis on 1031. Mortgage amortization derived from balance, rate, and P&amp;I. IRR via Newton-Raphson on after-tax annual cash flows with 1031 net proceeds as terminal value. Educational only — consult a CPA and qualified intermediary.
+  </div>
+</div>
+
+<script>
+let holdYears = 10;
+let chRent = null, chWealth = null, chComp = null;
+
+function setH(y) {
+  holdYears = y;
+  [5, 7, 10].forEach(x => document.getElementById('h' + x).classList.toggle('on', x === y));
+  go();
+}
+
+function fd(n) {
+  const a = Math.abs(n), s = n < 0 ? '-' : '';
+  if (a >= 1e6) return s + '$' + (a / 1e6).toFixed(2) + 'M';
+  if (a >= 1000) return s + '$' + (Math.round(a / 100) * 100 / 1000).toFixed(1) + 'K';
+  return s + '$' + Math.round(a);
+}
+function pp(n, d = 1) { return n.toFixed(d) + '%'; }
+function clr(n) { return n >= 0 ? '#1D9E75' : '#D85A30'; }
+
+function calcIRR(cfs) {
+  let r = 0.1;
+  for (let i = 0; i < 300; i++) {
+    let npv = 0, dnpv = 0;
+    cfs.forEach((c, t) => {
+      const d = Math.pow(1 + r, t);
+      npv += c / d;
+      dnpv -= t * c / Math.pow(1 + r, t + 1);
+    });
+    if (Math.abs(dnpv) < 1e-12) break;
+    const nr = r - npv / dnpv;
+    if (Math.abs(nr - r) < 1e-9) return nr;
+    r = Math.max(-0.99, Math.min(nr, 20));
+  }
+  return r;
+}
+
+function go() {
+  const rent0   = +document.getElementById('rent').value;
+  const rentinc = +document.getElementById('rentinc').value;
+  const vac     = +document.getElementById('vac').value / 100;
+  const opex    = +document.getElementById('opex').value;
+  const capex   = +document.getElementById('capex').value;
+  const mort    = +document.getElementById('mort').value;
+  const pval    = +document.getElementById('pval').value;
+  const debt0   = +document.getElementById('debt').value;
+  const cash    = +document.getElementById('cash').value;
+  const mrate   = +document.getElementById('mrate').value / 100;
+  const appr    = +document.getElementById('appr').value / 100;
+  const sellpct = +document.getElementById('sellcost').value / 100;
+  const fed     = +document.getElementById('fed').value / 100;
+  const st      = +document.getElementById('state').value / 100;
+  const marg    = fed + st;
+
+  document.getElementById('o-rent').textContent     = fd(rent0) + '/mo';
+  document.getElementById('o-rentinc').textContent  = '+$' + Math.round(rentinc) + '/mo';
+  document.getElementById('o-vac').textContent      = Math.round(vac * 100) + '%';
+  document.getElementById('o-opex').textContent     = fd(opex) + '/mo';
+  document.getElementById('o-capex').textContent    = fd(capex) + '/yr';
+  document.getElementById('o-mort').textContent     = fd(mort) + '/mo';
+  document.getElementById('o-pval').textContent     = fd(pval);
+  document.getElementById('o-debt').textContent     = fd(debt0);
+  document.getElementById('o-cash').textContent     = fd(cash);
+  document.getElementById('o-mrate').textContent    = pp(mrate * 100);
+  document.getElementById('o-appr').textContent     = pp(appr * 100) + '/yr';
+  document.getElementById('o-sellcost').textContent = pp(sellpct * 100);
+  document.getElementById('o-fed').textContent      = Math.round(fed * 100) + '%';
+  document.getElementById('o-state').textContent    = pp(st * 100);
+
+  const building  = pval * 0.8;
+  const annDeprec = building / 27.5;
+  const annMortAmt = mort * 12;
+
+  const labels = [], rentByYear = [];
+  const cfArr = [], princArr = [], apprYrArr = [];
+  const equityArr = [], cumCashArr = [], totalArr = [];
+  let runDebt = debt0, cumCash = 0, totalSuspended = 0;
+  const irrCFs = [-cash];
+
+  for (let y = 1; y <= holdYears; y++) {
+    const monthlyRent = rent0 + rentinc * Math.floor((y - 1) / 2);
+    rentByYear.push(monthlyRent);
+    labels.push('Yr ' + y);
+
+    const effRent  = monthlyRent * 12 * (1 - vac);
+    const annOpex  = opex * 12;
+    const grossNOI = effRent - annOpex - capex;
+    const annInt   = runDebt * mrate;
+    const annPrin  = Math.max(0, annMortAmt - annInt);
+    runDebt = Math.max(0, runDebt - annPrin);
+
+    const taxable = grossNOI - annInt - annDeprec;
+    let taxEffect = 0;
+    if (taxable < 0) { totalSuspended += Math.abs(taxable); }
+    else { taxEffect = -taxable * marg; }
+
+    const ncf = effRent - annOpex - capex - annMortAmt + taxEffect;
+    cumCash += ncf;
+    const pvNow = pval * Math.pow(1 + appr, y);
+    const equity = pvNow - runDebt;
+
+    cfArr.push(Math.round(ncf));
+    princArr.push(Math.round(annPrin));
+    apprYrArr.push(Math.round(pvNow * appr));
+    equityArr.push(Math.round(equity));
+    cumCashArr.push(Math.round(cumCash));
+    totalArr.push(Math.round(equity + cumCash));
+    irrCFs.push(ncf);
+  }
+
+  const salePrice    = pval * Math.pow(1 + appr, holdYears);
+  const sellCosts    = salePrice * sellpct;
+  const netSalePrice = salePrice - sellCosts;
+  const debtAtSale   = runDebt;
+  const netProceeds  = netSalePrice - debtAtSale;
+
+  const totalDeprec = annDeprec * holdYears;
+  const adjBasis    = pval - totalDeprec;
+  const grossGain   = netSalePrice - adjBasis;
+  const recapture   = Math.min(totalDeprec, Math.max(0, grossGain));
+  const ltGain      = Math.max(0, grossGain - recapture);
+  const taxAvoided  = recapture * 0.25 + ltGain * (0.15 + st);
+
+  irrCFs[irrCFs.length - 1] += netProceeds;
+  const irrVal      = calcIRR(irrCFs) * 100;
+  const moic        = cash > 0 ? (cumCash + netProceeds) / cash : 0;
+  const totalProfit = cumCash + netProceeds - cash;
+  const rentAtExit  = rent0 + rentinc * Math.floor((holdYears - 1) / 2);
+
+  document.getElementById('metrics').innerHTML = `
+    <div class="mc"><div class="mclbl">Rent at exit (yr ${holdYears})</div><div class="mcval">${fd(rentAtExit)}/mo</div></div>
+    <div class="mc"><div class="mclbl">Projected sale price</div><div class="mcval" style="color:#378ADD">${fd(salePrice)}</div></div>
+    <div class="mc"><div class="mclbl">Net proceeds (1031)</div><div class="mcval" style="color:#534AB7">${fd(netProceeds)}</div></div>
+    <div class="mc"><div class="mclbl">Tax deferred by 1031</div><div class="mcval" style="color:#1D9E75">${fd(taxAvoided)}</div></div>
+    <div class="mc"><div class="mclbl">Cumulative net cash</div><div class="mcval" style="color:${clr(cumCash)}">${fd(cumCash)}</div></div>
+    <div class="mc"><div class="mclbl">Suspended losses (carried fwd)</div><div class="mcval" style="color:#BA7517">${fd(totalSuspended)}</div></div>
+  `;
+
+  document.getElementById('hero').innerHTML = `
+    <div class="hb">
+      <div class="hlbl">After-tax IRR</div>
+      <div class="hnum" style="color:${irrVal >= 10 ? '#1D9E75' : irrVal >= 6 ? '#BA7517' : '#D85A30'}">${pp(irrVal)}</div>
+      <div class="hsub">annualized on ${fd(cash)} invested</div>
+    </div>
+    <div class="hb">
+      <div class="hlbl">Equity multiple (MOIC)</div>
+      <div class="hnum" style="color:#534AB7">${moic.toFixed(2)}×</div>
+      <div class="hsub">total return ÷ cash in</div>
+    </div>
+    <div class="hb">
+      <div class="hlbl">Total profit</div>
+      <div class="hnum" style="color:${clr(totalProfit)}">${fd(totalProfit)}</div>
+      <div class="hsub">over ${holdYears} years</div>
+    </div>
+  `;
+
+  const rentGrowth = pp(((rentAtExit - rent0) / rent0) * 100);
+  let verdict = `Your $${Math.round(rentinc)} bump every 2 years takes rent from ${fd(rent0)} to ${fd(rentAtExit)}/mo by year ${holdYears} — a ${rentGrowth} total increase. `;
+  if (irrVal >= 12) verdict += `Combined with leverage and ${pp(appr * 100)}/yr appreciation, this produces an excellent ${pp(irrVal)} IRR. The 1031 saves ${fd(taxAvoided)} in deferred tax — staying in the next deal compounding.`;
+  else if (irrVal >= 7) verdict += `This drives a solid ${pp(irrVal)} IRR. The 1031 means all ${fd(netProceeds)} rolls into your next property with ${fd(taxAvoided)} in deferred tax acting as free leverage.`;
+  else verdict += `IRR of ${pp(irrVal)} is modest. The fixed-dollar rent bump is conservative at your property value. The biggest levers are appreciation rate and expense control.`;
+  if (totalSuspended > 0) verdict += ` Your ${fd(totalSuspended)} in suspended passive losses carry forward into the next property's basis via the 1031.`;
+  document.getElementById('verdict').textContent = verdict;
+
+  let thtml = `<thead><tr><th>Year</th><th>Rent/mo</th><th>Net cash</th><th>Paydown</th><th>Appreciation</th><th>Equity</th></tr></thead><tbody>`;
+  for (let i = 0; i < holdYears; i++) {
+    const hl = i === holdYears - 1 ? ' style="background:#f7f7f9"' : '';
+    thtml += `<tr${hl}><td>Yr ${i+1}</td><td>${fd(rentByYear[i])}</td><td style="color:${clr(cfArr[i])}">${fd(cfArr[i])}</td><td style="color:#534AB7">${fd(princArr[i])}</td><td style="color:#378ADD">${fd(apprYrArr[i])}</td><td>${fd(equityArr[i])}</td></tr>`;
+  }
+  document.getElementById('yr-table').innerHTML = thtml + '</tbody>';
+
+  document.getElementById('exit-bd').innerHTML = [
+    ['Gross sale price', fd(salePrice), ''],
+    ['− Selling costs (' + pp(sellpct * 100) + ')', '−' + fd(sellCosts), '#D85A30'],
+    ['= Net sale price', fd(netSalePrice), ''],
+    ['− Remaining mortgage', '−' + fd(Math.round(debtAtSale)), '#D85A30'],
+    ['Gross gain (deferred via 1031)', fd(grossGain), '#BA7517'],
+    ['Tax deferred (recapture + LTCG)', fd(taxAvoided) + ' saved', '#1D9E75'],
+    ['= Net proceeds to reinvest', fd(netProceeds), '#534AB7'],
+  ].map(([l, v, c]) => `<div class="row"><span class="rl">${l}</span><span class="rv" style="color:${c || '#1d1d1f'}">${v}</span></div>`).join('');
+
+  if (chRent)   { chRent.destroy();   chRent = null; }
+  if (chWealth) { chWealth.destroy(); chWealth = null; }
+  if (chComp)   { chComp.destroy();   chComp = null; }
+
+  chRent = new Chart(document.getElementById('ch-rent'), {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Monthly rent', data: rentByYear, borderColor: '#534AB7', backgroundColor: 'rgba(83,74,183,0.09)', fill: true, stepped: true, pointRadius: 4, borderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => '$' + c.parsed.y + '/mo' } } }, scales: { y: { ticks: { callback: v => '$' + v }, grid: { color: 'rgba(0,0,0,0.05)' }, min: rent0 - 100 }, x: { grid: { display: false } } } }
+  });
+
+  chWealth = new Chart(document.getElementById('ch-wealth'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Property equity',  data: equityArr,  borderColor: '#534AB7', backgroundColor: 'rgba(83,74,183,0.07)', fill: true,  tension: 0.3, pointRadius: 3, borderWidth: 2 },
+      { label: 'Cumulative cash',  data: cumCashArr, borderColor: '#1D9E75', backgroundColor: 'transparent',          fill: false, tension: 0.3, pointRadius: 3, borderWidth: 2, borderDash: [6, 4] },
+      { label: 'Total wealth',     data: totalArr,   borderColor: '#D85A30', backgroundColor: 'transparent',          fill: false, tension: 0.3, pointRadius: 3, borderWidth: 2 },
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fd(c.parsed.y) } } }, scales: { y: { ticks: { callback: v => fd(v) }, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } } }
+  });
+
+  chComp = new Chart(document.getElementById('ch-comp'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Net cash flow',     data: cfArr,     backgroundColor: '#1D9E75', borderWidth: 0 },
+      { label: 'Principal paydown', data: princArr,  backgroundColor: '#534AB7', borderWidth: 0 },
+      { label: 'Appreciation',      data: apprYrArr, backgroundColor: '#378ADD', borderWidth: 0 },
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fd(c.parsed.y) } } }, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, ticks: { callback: v => fd(v) }, grid: { color: 'rgba(0,0,0,0.05)' } } } }
+  });
+}
+
+go();
+</script>
+</body>
+</html>
